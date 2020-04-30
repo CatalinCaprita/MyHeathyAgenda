@@ -6,6 +6,9 @@ public class Protein extends MacroNutrient {
 	public Protein(double quantity) {
 		super(quantity);
 	}
+	public Protein(String quantity) {
+		super(Double.parseDouble(quantity));
+	}
 	public  int getCaloricValue(){
 		return CALORIC_VALUE;
 	}

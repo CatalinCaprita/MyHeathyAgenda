@@ -11,12 +11,16 @@ import java.util.Scanner;
 
 import food.*;
 import spaces.recipes.RecipeBook;
+import util.CSVLoader;
 import util.ErrorOnCommandException;
+import util.InputHandler;
 import util.InvalidCommandException;
 import util.OptionHandler;
+import util.TimeStamp;
 public class DailyFoodDiary implements Interactive{
 	private Map<String,Meal> meals = new HashMap<String,Meal>();
 	private List<String> personalNotes = new ArrayList<String>();
+	private List<String>mealNames = new ArrayList<String>();
 	private LocalDateTime logTime = LocalDateTime.now();
 	private StringBuilder logInfo = new StringBuilder();
 	private static final String OPTIONS = "1.Show total Macronutrient Split | "+ 
@@ -27,7 +31,6 @@ public class DailyFoodDiary implements Interactive{
 	private boolean updateNeeded = true;
 	private MacroNutrient[] totalMacros = new MacroNutrient[3];
 	private RecipeBook link;
-	//private RecipeBook recipes;
 	public DailyFoodDiary() {
 		logInfo.append("Diary from :");
 		logInfo.append(logTime);
@@ -46,11 +49,11 @@ public class DailyFoodDiary implements Interactive{
 	@Override
 	public int action(int actionId) {
 		switch(actionId) {
-		case 1:{showMacroSplit(); return 1;}
-		case 2:{System.out.println(this.toString()); return 1;}
-		case 3:{return editMeal(null);}
-		case 4:{return addNote();}
-		case 5:{return showNotes();}
+		case 1:{CSVLoader.recordAction(new TimeStamp("Printed Total Calories in Food Diary"));showMacroSplit(); return 1;}
+		case 2:{CSVLoader.recordAction(new TimeStamp("Printed All Meals from current Diary"));System.out.println(this.toString()); return 1;}
+		case 3:{CSVLoader.recordAction(new TimeStamp("Entered Editing Meal"));return editMeal(null);}
+		case 4:{CSVLoader.recordAction(new TimeStamp("Added Note to Personal Notes"));return addNote();}
+		case 5:{CSVLoader.recordAction(new TimeStamp("Printed Personal Notes"));return showNotes();}
 		default : return -2;
 		}
 	}
@@ -60,15 +63,15 @@ public class DailyFoodDiary implements Interactive{
 	}
 	public int  editMeal(String lookup) {
 		if(lookup ==  null) {
-		System.out.println("Please select the meal that you wish to edit");
-		Scanner in = new Scanner(System.in);
-		while(true) {
-			if(in.hasNext()) {
-				lookup = in.nextLine();
+			showMealNames();
+		int key = InputHandler.listenInt("Please select the meal that you wish to edit", 0) - 1;
+		int i = 0;
+		for(String name : meals.keySet()) {
+			if( i == key) {
+				lookup = name;
 				break;
-			}
-			else
-				in.next();
+				}
+			i++;
 			}
 		}
 		if(!meals.containsKey(lookup)) {
@@ -146,9 +149,25 @@ public class DailyFoodDiary implements Interactive{
 	public RecipeBook accessRecipes() {
 		return link;
 	}
-	public Meal getMeal(String lookup) {
+	public Meal getMeal(int key) {
+		int i = 0;
+		String lookup = null;
+		for(String name : meals.keySet()) {
+			if( i == key) {
+				lookup = name;
+				break;
+				}
+			i++;
+		}
 		if(!meals.containsKey(lookup))
 			return null;
 		return meals.get(lookup);
+	}
+	public void showMealNames() {
+		int i = 1;
+		for(String name : meals.keySet()) {
+			System.out.print(i + "."+ name + " ");
+			i++;
+		}
 	}
 }

@@ -1,22 +1,37 @@
 package spaces;
 
+import spaces.recipes.Recipe;
 import spaces.recipes.RecipeBook;
+import user.Goals;
+import user.User;
+import util.CSVLoader;
 import util.ErrorOnCommandException;
+import util.InputHandler;
 import util.InvalidCommandException;
 import util.OptionHandler;
+import util.TimeStamp;
+import util.UserFilesManager;
 /***
- * For this stage , the Session object represents the entire user experience,as a FoodDiary and a RecipeBook are created on startup
+ * The session class is responsible for managing user experience once the a certain User has been authenticated within the archives
  * @author Nicusor-Catalin Caprita
  *
  */
 
 public class Session implements Interactive{
-	private static final String OPTIONS = "1.Take a look at today's diary | 2.Browse Recipes | 3.Exit";
-	private static final int SIZE = 3;
-	private static DailyFoodDiary today = new DailyFoodDiary();
-	private static RecipeBook recipes = new RecipeBook() ;
-	public Session() {
+	private static final String OPTIONS = "1.Take a look at today's diary | 2.Browse Recipes | 3.View Personal Goals and Stats  | 4.Update Goals & Stats | 5.Exit";
+	private static final int SIZE = 5;
+	private DailyFoodDiary today = new DailyFoodDiary();
+	private RecipeBook recipes;
+	private User user;
+	public Session(User user) {
 		today.link(recipes);
+		System.out.println("Hello," + user.getUsername());
+		this.user = user;
+		UserFilesManager.call();
+		UserFilesManager.attach(user);
+		recipes = UserFilesManager.loadRecipeBook();
+		user.getGoals().updateAll(UserFilesManager.loadGoals());
+		
 		recipes.link(today);
 	}
 	public DailyFoodDiary accessDiary() {
@@ -29,9 +44,11 @@ public class Session implements Interactive{
 	@Override
 	public int action(int actionId) {
 		switch(actionId){
-		case 1:{return editDiary();}
-		case 2:{return editRecipeBook();}
-		default : return -2;
+		case 1:{CSVLoader.recordAction(new TimeStamp("edited Diary"));return editDiary();}
+		case 2:{CSVLoader.recordAction(new TimeStamp("editRecipeBook"));return editRecipeBook();}
+		case 3:{CSVLoader.recordAction(new TimeStamp("show personal goals"));System.out.println(user.getGoals()); return 0;}
+		case 4:{CSVLoader.recordAction(new TimeStamp("updated user goals"));user.configureGoals(); return 0;}
+		default :{CSVLoader.recordAction(new TimeStamp("exit app"));return -2;}
 		}
 	}
 	@Override
@@ -59,17 +76,7 @@ public class Session implements Interactive{
 			}
 		}
 	}
-	public static void main(String[] args) {
-		System.out.println("Hello Again.");
-		OptionHandler.call();
-		Session sess = new Session();
-		OptionHandler.attach(sess);
-		while(true){
-			int response = OptionHandler.listen();
-			if(response == -2)
-				break;
-		}
-		System.out.println("Have a food day!");
-	}
+
+	
 	
 }

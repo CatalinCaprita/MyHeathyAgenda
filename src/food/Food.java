@@ -4,7 +4,9 @@ import java.text.DecimalFormat;
 import java.util.Scanner;
 
 import spaces.Interactive;
+import util.CSVLoader;
 import util.InputHandler;
+import util.TimeStamp;
 
 //For the moment, only working in grams
 //Using Composition, as Every type of Food HAS-An amount of C/P/F and no  Macronutrient can exist on its own
@@ -17,23 +19,25 @@ public class Food implements Interactive{
 	Protein proteins;
 	Fat fats;
 	private String name = "No Name Provided";
-	
+	public Food() {
+		
+	}
 	public Food(String name,double quantity) {
 		this.name = name;
 		this.quantity = quantity;
 	}
-	public Food(String name,double carbs, double proteins, double fats) {
+	public Food(String name,double carbs, double proteins, double fats,boolean perHundreadValues) {
 		this.name  = name;
 		this.carbs = new Carbohydrate(carbs);
 		this.proteins = new Protein(proteins);
 		this.fats = new Fat(fats);
-		quantity = this.carbs.quantity + this.proteins.quantity + this.fats.quantity;
+		quantity = perHundreadValues ? 100 : this.carbs.quantity + this.proteins.quantity + this.fats.quantity;
 	}
 	@Override
 	public int action(int actionId) {
 		switch(actionId) {
-		case 1:{ return editMacro();}
-		case 2:{ return editQuantity();}
+		case 1:{ CSVLoader.recordAction(new TimeStamp("Edited Macro in Food"));return editMacro();}
+		case 2:{ CSVLoader.recordAction(new TimeStamp("Edited Food Quantity"));return editQuantity();}
 		default: return -2;
 		}
 	}
@@ -52,25 +56,59 @@ public class Food implements Interactive{
 		return 0;
 	}
 	public int editQuantity() {
-		double amount = InputHandler.listenDouble("How many grams of this food do you want to log?",0);
-		quantity = amount;
+		double newQuantity = InputHandler.listenDouble("How many grams of this food do you want to log?",0);
+		carbs.quantity = carbs.quantity * newQuantity / quantity;
+		proteins.quantity = proteins.quantity * newQuantity / quantity;
+		fats.quantity = fats.quantity * newQuantity / quantity;
+		
+		quantity = newQuantity;
 		return 0;
 	}
-	public void setMacro(int type,double amount) {
+	public void setMacro(int type,double amountPerHundread) {
 		switch(type) {
 		case 0:{
-			carbs = new Carbohydrate(amount * (quantity/ 100));
+			carbs = new Carbohydrate(amountPerHundread * (quantity/ 100));
 			break;
 		}
 		case 1:{
-			proteins = new Protein(amount * (quantity/ 100));
+			proteins = new Protein(amountPerHundread * (quantity/ 100));
 			break;
 		}
 		case 2:{
-			fats = new Fat(amount * (quantity/ 100));
+			fats = new Fat(amountPerHundread * (quantity/ 100));
 			break;
 		}
 		
+		}
+	}
+	public double getMacroPerHundread(int type) {
+		switch(type) {
+		case 0:{
+			return carbs.quantity * 100 / quantity;
+		}
+		case 1:{
+			return proteins.quantity * 100 / quantity;
+		}
+		case 2:{
+			return fats.quantity * 100 / quantity;
+		}
+		default:
+			return 0.0;
+		}
+	}
+	public double getMacro(int type) {
+		switch(type) {
+		case 0:{
+			return carbs.quantity;
+		}
+		case 1:{
+			return proteins.quantity;
+		}
+		case 2:{
+			return fats.quantity;
+		}
+		default:
+			return 0.0;
 		}
 	}
 	public double totalCalories() {
@@ -79,6 +117,7 @@ public class Food implements Interactive{
 	public String toString() {
 		StringBuilder str = new StringBuilder();
 		DecimalFormat form = new DecimalFormat("#.00");
+		str.append(name);
 		str.append("\nTotal Calories:" + form.format(totalCalories())+". ");
 		str.append("Carbs : " + form.format(carbs.quantity) + ",");
 		str.append("Fats : " + form.format(fats.quantity)+ ",");

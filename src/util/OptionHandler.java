@@ -34,10 +34,8 @@ public class OptionHandler{
 		int response = 0;
 	while(true) {
 		showOpts();
-		Scanner in = new Scanner(System.in);
-		System.out.println("Please Select One of the available commands");
 		try {
-				int actionId = Integer.parseInt(in.nextLine());
+				int actionId = InputHandler.listenInt("Please select one of the available commands",1);
 				if(actionId > current.size())
 					throw new InvalidCommandException();
 				response = action(actionId);

@@ -7,6 +7,9 @@ public class Fat extends MacroNutrient{
 	public Fat(double quantity) {
 		super(quantity);
 	}
+	public Fat(String quantity) {
+		super(Double.parseDouble(quantity));
+	}
 	public  int getCaloricValue(){
 		return CALORIC_VALUE;
 	}

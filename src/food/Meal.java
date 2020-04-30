@@ -9,12 +9,13 @@ import java.util.Map;
 import java.util.Scanner;
 
 import spaces.Interactive;
+import util.CSVLoader;
 import util.InputHandler;
 import util.OptionHandler;
+import util.TimeStamp;
+import util.UserFilesManager;
 
 
-//Using aggregation as a Food object can exist independently, day in the "Saved Foods" data Base and be 
-//loaded in any kind of conglomerate of foods, either DailyDiary or RecipeBook
 
 /***
  * Meal Class Is composed of a various number of Foods. Each individual Food object has its own Carbohydrate/Protein/Fat split
@@ -30,7 +31,7 @@ public class Meal implements Interactive {
 	protected Map<String,Food> foods = new HashMap<String,Food>();
 	protected List<String> prettyPrint = new ArrayList<String>();
 	protected String description; //Could be whatever the user chooses it to name it but i will default 4 meals/day : Breakfast, Lunch, Snack, Dinner
-	protected static String[] macro_names = {"Carbohydrates","Proteins","Fats"};
+	protected static final String[] macro_names = {"Carbohydrates","Proteins","Fats"};
 	protected MacroNutrient[] totalMacros = new MacroNutrient[3];
 	private static final String OPTIONS ="1.Add New Food | 2.Remove Food | 3.Edit Food | 4.Show Macronutrient Split | 5.Back";
 	private static final int COMMAND_SIZE = 5; //reserved one for adding an existing Food ,as this is not part of the user input interaction cycle
@@ -50,6 +51,7 @@ public class Meal implements Interactive {
 		totalMacros[2] = new Fat();
 		updateNeeded = true;
 	}
+
 	@Override
 	public void showOpts() {
 		System.out.println(this.description + ".\n" + OPTIONS);
@@ -57,10 +59,10 @@ public class Meal implements Interactive {
 	@Override 
 	public int action(int actionId) {
 		switch(actionId) {
-		case 1:{ return addFood();}
-		case 2:{ return removeFood();}
-		case 3:{ return editFood();}
-		case 4:{ System.out.println(totalSplit());return 0;}
+		case 1:{ CSVLoader.recordAction(new TimeStamp("Added Food to Meal"));return addFood(null);}
+		case 2:{ CSVLoader.recordAction(new TimeStamp("Removed Food from Meal"));return removeFood();}
+		case 3:{ CSVLoader.recordAction(new TimeStamp("Edited Food from Meal"));return editFood();}
+		case 4:{ CSVLoader.recordAction(new TimeStamp("Printed Total Nutritional Values"));System.out.println(totalSplit());return 0;}
 		default: return -2;
 		}
 	}
@@ -68,18 +70,43 @@ public class Meal implements Interactive {
 	public int size() {
 		return COMMAND_SIZE;
 	}
-	public int addFood(){
-		String name = InputHandler.listenString("What is the name of the food?");
-		double amount = InputHandler.listenDouble("How many grams of it do you want to log?", 0);
-		Food item = new Food(name,amount);
-		System.out.println("Do you know the Macro-Nutrient Values for it? Check the Nutritional Value on the Back!\n Note: If a Macro-Nutrient is omitted, we will assume it has 0 grams of it!");
-		for(int i=0 ;i < macro_names.length; i++) {
-			double quantity = InputHandler.listenDouble("How many " + macro_names[i] + "? (per 100 grams )", 0);
-			totalMacros[i].quantity += quantity * (amount / 100);
-			item.setMacro(i, quantity);
+	public int addFood(Food item){
+		boolean fileLoaded = false;
+		if(item == null) {
+			int answer = InputHandler.listenInt("Do you want to load from saved foods?(1.Yes | 0.No)",0);
+			if(answer == 1) {
+				UserFilesManager.printSavedFoods();
+				String name = InputHandler.listenString("What is the name of the food?");
+				item = UserFilesManager.loadSavedFood(name);
+				if(item == null) {
+					System.out.println("Could not find a saved food with that name.");
+					return -1;
+				}
+				item.editQuantity();
+				fileLoaded = true;
+			}
+			else{
+			String name = InputHandler.listenString("What is the name of the food?");
+			System.out.println("Do you know the Macro-Nutrient Values for it? Check the Nutritional Value on the Back!\n Note: If a Macro-Nutrient is omitted, we will assume it has 0 grams of it!");
+			double [] macroVals = new double[3];
+			for(int i=0 ;i < macro_names.length; i++) {
+				macroVals[i] = InputHandler.listenDouble("How many " + macro_names[i] + "? (per 100 grams )", 0);
+				}
+			item = new Food(name,macroVals[0],macroVals[1],macroVals[2],true);
+			item.editQuantity();
+			}
 		}
-		foods.put(name,item);
-		prettyPrint.add(name);
+		foods.put(item.getName(),item);
+		prettyPrint.add(item.getName());
+		totalMacros[0].quantity += item.carbs.quantity; 
+		totalMacros[1].quantity += item.proteins.quantity; 
+		totalMacros[2].quantity += item.fats.quantity; 
+		if(!fileLoaded) {
+			int answer = InputHandler.listenInt("Do you want to save this food for later?(1.Yes | 0.No)", 0);
+			if(answer == 1) {
+				UserFilesManager.saveFood(new Food(item.getName(),item.getMacroPerHundread(0),item.getMacroPerHundread(1),item.getMacroPerHundread(2),true));
+			}
+		}
 		updateNeeded = true;
 		return 0;
 	}
@@ -132,7 +159,6 @@ public class Meal implements Interactive {
 			return str.toString();
 		}
 		for(String foodName : foods.keySet()) {
-			str.append(foodName);
 			str.append(foods.get(foodName).toString());
 		}
 		str.append(totalSplit());

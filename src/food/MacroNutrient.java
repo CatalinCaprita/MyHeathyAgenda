@@ -13,6 +13,10 @@ public abstract class MacroNutrient {
 	public double getQuantity() {
 		return quantity;
 	}
+	public String toString() {
+		return Double.toString(this.quantity);
+	}
 	public abstract int getCaloricValue();
 	public abstract double computeEnergy();
+	
 }

@@ -13,8 +13,11 @@ import food.NegativeMacroException;
 import food.Protein;
 import spaces.DailyFoodDiary;
 import spaces.Interactive;
+import util.CSVLoader;
 import util.InputHandler;
 import util.OptionHandler;
+import util.TimeStamp;
+import util.UserFilesManager;
 
 public class RecipeBook implements Interactive{
 	private Map<String,Recipe> recipes = new HashMap<String,Recipe>();
@@ -23,6 +26,13 @@ public class RecipeBook implements Interactive{
 	private static final int COMMAND_SIZE = 6;
 	private DailyFoodDiary logging;
 	public RecipeBook() {}
+	
+	public RecipeBook(List<Recipe> r) {
+		for(Recipe recipe : r) {
+			recipes.putIfAbsent(recipe.getName(),recipe);
+			keys.add(recipe.getName());
+		}
+	}
 	@Override
 	public void showOpts() {
 		System.out.println("You are now browsing your Recipes.\n" + OPTIONS);
@@ -30,11 +40,11 @@ public class RecipeBook implements Interactive{
 	@Override 
 	public int action(int actionId) {
 		switch(actionId) {
-		case 1:{ System.out.println(this); return 0;}
-		case 2:{ return addRecipe();}
-		case 3:{ return removeRecipe();}
-		case 4:{ return editRecipe(null);}
-		case 5:{ return addToDiary();}
+		case 1:{ CSVLoader.recordAction(new TimeStamp("Show Current Recipes"));System.out.println(this); return 0;}
+		case 2:{ CSVLoader.recordAction(new TimeStamp("Created new Recipe"));return addRecipe();}
+		case 3:{ CSVLoader.recordAction(new TimeStamp("Removed a Recipe"));return removeRecipe();}
+		case 4:{ CSVLoader.recordAction(new TimeStamp("Edited a Recipe"));return editRecipe(null);}
+		case 5:{ CSVLoader.recordAction(new TimeStamp("Added saved Recipe to Diary"));return addToDiary();}
 		default: return -2;
 		}
 	}
@@ -77,9 +87,14 @@ public class RecipeBook implements Interactive{
 			int response = OptionHandler.listen();
 			if(response == -2){
 				OptionHandler.detach();
-				return 0;
+				break;
 			}
 		}
+		int answer = InputHandler.listenInt("Do you want to save changes for this recipe in your recipe Book?(1.Yes | 0.No)", 0);
+		if(answer == 1) {
+			UserFilesManager.saveRecipe(ref);
+		}
+		return 0;
 	}
 	public int removeRecipe() {
 		listItems();
@@ -103,12 +118,13 @@ public class RecipeBook implements Interactive{
 		Recipe target = recipes.get(keys.get(key - 1));
 		System.out.println();
 		double servings = InputHandler.listenDouble("How many Servings of " + keys.get(key - 1) +" to Add?", 1);
-		String targetMeal = InputHandler.listenString("To what meal?");
-		if(logging.getMeal(targetMeal) != null) {
+		logging.showMealNames();
+		int key2 = InputHandler.listenInt("\nTo what meal?",0) - 1;
+		if(logging.getMeal(key2) != null) {
 			double carbs = target.getMacroPerServing(0) * servings;
 			double proteins = target.getMacroPerServing(1) * servings;
 			double fats = target.getMacroPerServing(2) * servings ;
-			logging.getMeal(targetMeal).addExistingFood(new Food(keys.get(key -1),carbs,proteins,fats));
+			logging.getMeal(key2).addExistingFood(new Food(keys.get(key -1),carbs,proteins,fats,false));
 		}
 		return 0;
 		
@@ -119,7 +135,7 @@ public class RecipeBook implements Interactive{
 	}
 	private void listItems() {
 		System.out.println("Choose from avaiable recipes : \n");
-		int i = 0;
+		int i = 1;
 		for(String s : recipes.keySet()) {
 			System.out.println(i + "."+ s);
 			i++;

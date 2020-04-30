@@ -6,10 +6,14 @@ public class Carbohydrate extends MacroNutrient{
 	public Carbohydrate(double quantity) {
 		super(quantity);
 	}
+	public Carbohydrate(String quantity) {
+		super(Double.parseDouble(quantity));
+	}
 	public int getCaloricValue(){
 		return CALORIC_VALUE;
 	}
 	public double computeEnergy() {
 		return CALORIC_VALUE * quantity;
 	}
+
 }
