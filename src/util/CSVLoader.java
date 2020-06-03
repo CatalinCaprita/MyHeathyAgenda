@@ -26,15 +26,10 @@ import java.util.stream.Collectors;
 public class CSVLoader {
 	private static CSVLoader self;
 	private static String recordsPath;
-	private static String  logPath = "./" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-m-yyy")) + "LOGS.csv";
 	private CSVLoader(){
 	}
 	public static CSVLoader call() {
-		try {
-			Files.createFile(Paths.get(logPath));
-		}catch(IOException e) {
-			
-		}
+
 		self = self == null ? new CSVLoader() :self;
 		return self;
 	}
@@ -227,7 +222,7 @@ public class CSVLoader {
 		}
 	}
 	public static void recordAction(TimeStamp t) {
-		writeSingleEntry(logPath,t);
+		//writeSingleEntry(logPath,t);
 	}
 	
 }

@@ -1,6 +1,8 @@
 package food;
 
-public abstract class MacroNutrient {
+import java.io.Serializable;
+
+public abstract class MacroNutrient implements Serializable{
 	double quantity;
 	protected String brief;
 	public MacroNutrient() {}

@@ -13,9 +13,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+
 import com.sun.javadoc.Parameter;
 
+import GUI.AppFrame;
+import db.DBManager;
 import food.Food;
+import oracle.net.aso.g;
 import user.User;
 import util.CSVLoader;
 import util.LogScreen;
@@ -28,6 +35,7 @@ public class App {
 	private static App self;
 	private static LogScreen log;
 	private static boolean loginSuccess;
+	
 	private  App() {
 		System.out.println("Welcome to Your Health Agenda. And you are?");
 	}
@@ -37,30 +45,57 @@ public class App {
 	}
 	public static void main (String[] args) {
 		init();
-		log = LogScreen.call();
+		
+		OptionHandler.call();
+		LogScreen.call();
 		String username,password; 
 		CSVLoader.call();
-		OptionHandler.attach(log);
+		/*
+		 try {
+	            //UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
+	            UIManager.setLookAndFeel("javax.swing.plaf.metal.MetalLookAndFeel");
+	        } catch (UnsupportedLookAndFeelException ex) {
+	            ex.printStackTrace();
+	        } catch (IllegalAccessException ex) {
+	            ex.printStackTrace();
+	        } catch (InstantiationException ex) {
+	            ex.printStackTrace();
+	        } catch (ClassNotFoundException ex) {
+	            ex.printStackTrace();
+	        }
+	        /* Turn off metal's use of bold fonts */
+	        UIManager.put("swing.boldMetal", Boolean.FALSE);
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				AppFrame.getInstance("My Healthy Agenda");
+			}
+		});
+		OptionHandler.attach(LogScreen.call());
 		while(true){
 			int response = OptionHandler.listen();
-			loginSuccess = (response != -1);
-			if(response == -2) {
+			loginSuccess = (response == -3);
+			if(response == -2 || response == -3 ) {
 				OptionHandler.detach();
 				break;
 			}
 		}
 		if(loginSuccess) {
-			loggedUser = new User(log.getUsername(),log.getPassword(),log.getEmail());
-			OptionHandler.attach(new Session(loggedUser));
+			OptionHandler.attach(new Session(new User(LogScreen.getUsername(),LogScreen.getPassword(),LogScreen.getEmail())));
 			while(true){
 				int response = OptionHandler.listen();
-				if(response == -2) {
+				if(response < -1) {
 					OptionHandler.detach();
 					break;
 				}
 			}
 		}
+		else {
+			System.exit(0);
+			System.out.println("Have a good day, stranger.");
+		}
 		System.out.println("Have a good day," + LogScreen.getUsername());
+		DBManager.close();
 	}
 	
 }

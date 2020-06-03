@@ -6,6 +6,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
+
+import db.DBProxy;
+import db.DBService;
 import food.Food;
 import food.MacroNutrient;
 import food.Meal;
@@ -20,8 +23,9 @@ import util.TimeStamp;
 public class Recipe extends Meal{
 	private int servings;
 	private static final int COMMAND_SIZE = 7;
-	private static final String OPTIONS = "1.Add Ingredient | 2.Edit Ingredient | 3.Remove Ingredient | 4.Edit Serving Size | 5.Show Total Macronutrient Spli | 6.Show Macronutrient split per serving size | 7.Back";
+	private static final String OPTIONS = "1.Add Ingredient | 2.Edit Ingredient | 3.Remove Ingredient | 4.Edit Serving Size | 5.Show Total Macronutrient Split | 6.Show Macronutrient split per serving size | 7.Back";
 	private static final DecimalFormat form = new DecimalFormat("#.00");
+	private final DBService recipeService = DBProxy.create("recipes");
 	public Recipe(String description) {
 		super(description);
 	}
@@ -30,7 +34,7 @@ public class Recipe extends Meal{
 		this.servings = servings;
 	}
 	public Recipe() {
-		
+		super();
 	}
 	public Recipe(String description, List<Food> ingredients,int servings) {
 		super(description);
@@ -42,6 +46,7 @@ public class Recipe extends Meal{
 			}
 		}
 		this.servings = servings;
+		this.totalCalories = computeCalories();
 	}
 	@Override
 	public void showOpts() {
@@ -50,18 +55,83 @@ public class Recipe extends Meal{
 	@Override 
 	public int action(int actionId) {
 		switch(actionId) {
-		case 1:{ CSVLoader.recordAction(new TimeStamp("Added Ingredient to Recipe"));return addFood(null);}
-		case 2:{ CSVLoader.recordAction(new TimeStamp("Edited Ingredient in Recipe"));return editFood();}
-		case 3:{ CSVLoader.recordAction(new TimeStamp("Removed Ingredient from Recipe"));return removeFood();}
-		case 4:{ CSVLoader.recordAction(new TimeStamp("Edited Number of Servings"));return editServings();}
-		case 5:{ CSVLoader.recordAction(new TimeStamp("Printed Total Nutritional Values"));System.out.println(totalSplit()); return 0;}
-		case 6:{ CSVLoader.recordAction(new TimeStamp("Printed Nutritional Values per Serving"));System.out.println(servingSplit()); return 0;}
+		case 1:{ return addFood(null);}
+		case 2:{ return editFood();}
+		case 3:{ return removeFood();}
+		case 4:{ return editServings();}
+		case 5:{ System.out.println(totalSplit()); return 0;}
+		case 6:{ System.out.println(servingSplit()); return 0;}
 		default: return -2;
 		}
 	}
 	@Override
 	public int size() {
 		return COMMAND_SIZE;
+	}
+	@Override
+	public String getActionName(int actionId) {
+		switch(actionId) {
+		case 1:{ return "addFood()";}
+		case 2:{ return "removeFood()";}
+		case 3:{ return "editFood()";}
+		case 4:{ return " System.out.println(totalSplit())";}
+		default: return "-2";
+		}
+	}
+	
+	@Override
+	public int addFood(Food item) {
+		int exitCode = super.addFood(item);
+		if(exitCode == -1)
+			return exitCode;
+		item = foods.get(prettyPrint.get(prettyPrint.size() - 1)); //get last added item
+		recipeService.add(new String[] {this.description,item.getName(),Double.toString(item.getQuantity())});
+		return 0;
+	}
+	@Override
+	public int removeFood() {
+		listItems();
+		int key = InputHandler.listenInt("\nWhat Food do you want to Remove? Press 0 to go Back.", 1);
+		if(!foods.containsKey(prettyPrint.get(key - 1))) {
+			System.out.println("No such food found.");
+			return -1;
+		}
+		if( key == 0)
+			return 0;
+		Food removal = foods.get(prettyPrint.get(key - 1));
+		for(int i=0 ; i< totalMacros.length; i++) {
+			totalMacros[i].addQuantity(-removal.getMacro(i)); 
+		}
+		totalCalories = computeCalories();
+		recipeService.delete(removal.getName());
+		foods.remove(prettyPrint.get(key - 1));
+		System.out.println(prettyPrint.get(key - 1) + " removed form " + this.description);
+		prettyPrint.remove(key - 1);
+		return 0;		
+	}
+	@Override
+	public int editFood() {
+		listItems();
+		int key  = InputHandler.listenInt("\nWhat food do you want to edit? Enter the number.", 1);
+		Food edit = foods.get(prettyPrint.get(key - 1));
+		for(int i=0 ; i< totalMacros.length; i++) {
+			totalMacros[i].addQuantity(-edit.getMacro(i)); 
+		}
+		updateNeeded = true;
+		OptionHandler.attach(edit);
+		while(true) {
+			int response = OptionHandler.listen();
+			if(response == -2) {
+				OptionHandler.detach();
+				break;
+			}
+		}
+		for(int i=0 ; i< totalMacros.length; i++) {
+			totalMacros[i].addQuantity(edit.getMacro(i)); 
+		}
+		totalCalories = computeCalories();
+		recipeService.update(new String[] {this.description,edit.getName(),Double.toString(edit.getQuantity())});
+		return 0;
 	}
 	public String servingSplit() {
 		StringBuilder str = new StringBuilder();
@@ -86,7 +156,8 @@ public class Recipe extends Meal{
 	public String toString() {
 		StringBuilder str = new StringBuilder();
 		str.append(this.description);str.append(" yields : ");str.append(servings);
-		str.append(" Per Serving : | Carbohydrates : " + form.format(totalMacros[0].getQuantity())); 
+		str.append(" Per Serving : ");str.append(totalCalories);
+		str.append(" | Carbohydrates : " + form.format(totalMacros[0].getQuantity())); 
 		str.append(" | Proteins: " + form.format(totalMacros[1].getQuantity()));
 		str.append(" | Fats : " + form.format(totalMacros[2].getQuantity()));
 		return str.toString();	
@@ -102,5 +173,12 @@ public class Recipe extends Meal{
 	}
 	public int getServings() {
 		return this.servings;
+	}
+	public double getCaloriesPerServing() {
+		totalCalories = totalCalories == 0 ? computeCalories() : totalCalories;
+		return totalCalories / servings;
+	}
+	public Collection<Food> getIngredients(){
+		return this.foods.values();
 	}
 }

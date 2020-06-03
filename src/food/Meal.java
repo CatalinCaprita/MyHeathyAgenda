@@ -1,19 +1,19 @@
 package food;
 
+import java.io.Serializable;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 
+import javax.swing.JPanel;
+
+import db.DBProxy;
+import db.DBService;
 import spaces.Interactive;
-import util.CSVLoader;
 import util.InputHandler;
 import util.OptionHandler;
-import util.TimeStamp;
-import util.UserFilesManager;
 
 
 
@@ -27,29 +27,34 @@ import util.UserFilesManager;
  *
  *
  */
-public class Meal implements Interactive {
+public class Meal implements Interactive,Serializable {
 	protected Map<String,Food> foods = new HashMap<String,Food>();
 	protected List<String> prettyPrint = new ArrayList<String>();
-	protected String description; //Could be whatever the user chooses it to name it but i will default 4 meals/day : Breakfast, Lunch, Snack, Dinner
+	protected String description; 							//Could be whatever the user chooses it to name it but i will default 4 meals/day : Breakfast, Lunch, Snack, Dinner
 	protected static final String[] macro_names = {"Carbohydrates","Proteins","Fats"};
 	protected MacroNutrient[] totalMacros = new MacroNutrient[3];
 	private static final String OPTIONS ="1.Add New Food | 2.Remove Food | 3.Edit Food | 4.Show Macronutrient Split | 5.Back";
-	private static final int COMMAND_SIZE = 5; //reserved one for adding an existing Food ,as this is not part of the user input interaction cycle
+	private static final int COMMAND_SIZE = 5; 				//reserved one for adding an existing Food ,as this is not part of the user input interaction cycle
 	private static final DecimalFormat form = new DecimalFormat("#.00");
 	protected double totalCalories = 0;
 	protected boolean updateNeeded = true;
+	protected transient DBService foodService;
 	public Meal(String description){
 		this.description = description;
 		totalMacros[0] = new Carbohydrate();
 		totalMacros[1] = new Protein();
 		totalMacros[2] = new Fat();
 		updateNeeded = true; 
+		foodService = DBProxy.create("food");
+	
 	}
 	public Meal() {
 		totalMacros[0] = new Carbohydrate();
 		totalMacros[1] = new Protein();
 		totalMacros[2] = new Fat();
 		updateNeeded = true;
+		foodService = DBProxy.create("food");
+		
 	}
 
 	@Override
@@ -59,20 +64,41 @@ public class Meal implements Interactive {
 	@Override 
 	public int action(int actionId) {
 		switch(actionId) {
-		case 1:{ CSVLoader.recordAction(new TimeStamp("Added Food to Meal"));return addFood(null);}
-		case 2:{ CSVLoader.recordAction(new TimeStamp("Removed Food from Meal"));return removeFood();}
-		case 3:{ CSVLoader.recordAction(new TimeStamp("Edited Food from Meal"));return editFood();}
-		case 4:{ CSVLoader.recordAction(new TimeStamp("Printed Total Nutritional Values"));System.out.println(totalSplit());return 0;}
+		case 1:{ return addFood(null);}
+		case 2:{ return removeFood();}
+		case 3:{ return editFood();}
+		case 4:{ System.out.println(totalSplit());return 0;}
 		default: return -2;
+		}
+	}
+	@Override
+	public String getActionName(int actionId) {
+		switch(actionId) {
+		case 1:{ return "addFood()";}
+		case 2:{ return "removeFood()";}
+		case 3:{ return "editFood()";}
+		case 4:{ return " System.out.println(totalSplit())";}
+		default: return "-2";
 		}
 	}
 	@Override
 	public int size() {
 		return COMMAND_SIZE;
 	}
+	@Override
+	public String getOpts() {
+		return OPTIONS;
+	}
+	@Override
+	public JPanel createPanel() {
+		return null;
+	}
 	public int addFood(Food item){
 		boolean fileLoaded = false;
 		if(item == null) {
+			/** 
+			 Procedure to be used with the FILE MANAGEMENT SYSTEM retrieving foods from CSV Files
+			 
 			int answer = InputHandler.listenInt("Do you want to load from saved foods?(1.Yes | 0.No)",0);
 			if(answer == 1) {
 				UserFilesManager.printSavedFoods();
@@ -84,30 +110,51 @@ public class Meal implements Interactive {
 				}
 				item.editQuantity();
 				fileLoaded = true;
-			}
-			else{
+			*/
+			int answer = InputHandler.listenInt("Do you want to load from saved foods?(1.Yes | 0.No)",0);
 			String name = InputHandler.listenString("What is the name of the food?");
-			System.out.println("Do you know the Macro-Nutrient Values for it? Check the Nutritional Value on the Back!\n Note: If a Macro-Nutrient is omitted, we will assume it has 0 grams of it!");
-			double [] macroVals = new double[3];
-			for(int i=0 ;i < macro_names.length; i++) {
-				macroVals[i] = InputHandler.listenDouble("How many " + macro_names[i] + "? (per 100 grams )", 0);
+			if(answer == 1) {
+					item = (Food)foodService.readOnce(new String[] {name});
+					if(item == null) {
+						System.out.println("Could not find a saved food with that name.");
+						return -1;
+					}
+					item.editQuantity(-1);
+					fileLoaded = true;
 				}
-			item = new Food(name,macroVals[0],macroVals[1],macroVals[2],true);
-			item.editQuantity();
+			
+				else{
+				System.out.println("Do you know the Macro-Nutrient Values for it? Check the Nutritional Value on the Back!\n Note: If a Macro-Nutrient is omitted, we will assume it has 0 grams of it!");
+				double [] macroVals = new double[3];
+				for(int i=0 ;i < macro_names.length; i++) {
+					macroVals[i] = InputHandler.listenDouble("How many " + macro_names[i] + "? (per 100 grams )", 0);
+					}
+				item = new Food(name,macroVals[0],macroVals[1],macroVals[2],true);
+				item.editQuantity(-1);
+				}
 			}
-		}
+		else
+			fileLoaded = false;
 		foods.put(item.getName(),item);
 		prettyPrint.add(item.getName());
 		totalMacros[0].quantity += item.carbs.quantity; 
 		totalMacros[1].quantity += item.proteins.quantity; 
 		totalMacros[2].quantity += item.fats.quantity; 
 		if(!fileLoaded) {
-			int answer = InputHandler.listenInt("Do you want to save this food for later?(1.Yes | 0.No)", 0);
+			int answer = InputHandler.listenInt("Do you want to save this food to our database?(1.Yes | 0.No)", 0);
 			if(answer == 1) {
-				UserFilesManager.saveFood(new Food(item.getName(),item.getMacroPerHundread(0),item.getMacroPerHundread(1),item.getMacroPerHundread(2),true));
+				/*
+				 * Method used to save the Food in the users' list of foods via CSV FILE MANAGEMENT. NO longer needed as every food is located on the DB
+				 * UserFilesManager.saveFood(new Food(item.getName(),item.getMacroPerHundread(0),item.getMacroPerHundread(1),item.getMacroPerHundread(2),true));
+				 */
+				foodService.add(new String[] {item.getName(),
+						Double.toString(item.getMacroPerHundread(0)),
+						Double.toString(item.getMacroPerHundread(1)),
+						Double.toString(item.getMacroPerHundread(2))
+						});
 			}
 		}
-		updateNeeded = true;
+		totalCalories = computeCalories();
 		return 0;
 	}
 	public int removeFood() {
@@ -126,7 +173,7 @@ public class Meal implements Interactive {
 		foods.remove(prettyPrint.get(key - 1));
 		System.out.println(prettyPrint.get(key - 1) + " removed form " + this.description);
 		prettyPrint.remove(key - 1);
-		updateNeeded = true;
+		totalCalories = computeCalories();
 		return 0;		
 	}
 	
@@ -195,7 +242,7 @@ public class Meal implements Interactive {
 		foods.put(addition.getName(), addition);
 		prettyPrint.add(addition.getName());
 	}
-	private void listItems() {
+	protected void listItems() {
 		System.out.println("Foods in " + this.description + ":");
 		int i = 1;
 		for(String foodName : prettyPrint) {

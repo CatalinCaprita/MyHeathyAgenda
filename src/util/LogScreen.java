@@ -1,13 +1,10 @@
 package util;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import javax.swing.JPanel;
 
+import GUI.panels.LogPanel;
+import db.DBProxy;
+import db.DBService;
 import spaces.Interactive;
 
 public class LogScreen implements Interactive{
@@ -17,10 +14,13 @@ public class LogScreen implements Interactive{
 	private static String username;
 	private static String password;
 	private static String  email;
+	private static DBService logProxy = DBProxy.create("user");
+	private static int logInstance = 0;
+	private static boolean loginSuccess;
 	private LogScreen() {
 		System.out.println("First off, let us see some credentials.");
 	}
-	public static LogScreen call() {
+	public static  LogScreen call() {
 		self = (self == null)? new LogScreen() : self;
 		return self;
 	}
@@ -29,22 +29,39 @@ public class LogScreen implements Interactive{
 		System.out.println("Login Screen.\n" + OPTIONS);
 	}
 	@Override
+	public String getOpts() {
+		return OPTIONS;
+	}
+	@Override
 	public int size() {
 		return COMMAND_SIZE;
 	}
 	@Override 
 	public int action(int actionId) {
 		switch(actionId) {
-		case 1:{ CSVLoader.recordAction(new TimeStamp("signIn"));return signIn();}
-		case 2:{ CSVLoader.recordAction(new TimeStamp("registered new user"));return register();}
-		default:{CSVLoader.recordAction(new TimeStamp("exit"));return -2;}
+		case 1:{ return signIn();}
+		case 2:{return register();}
+		default:{return -2;}
 		}
+	}
+	@Override
+	public String getActionName(int actionId) {
+		switch(actionId) {
+		case 1:{ return "signIn()";}
+		case 2:{return "register()";}
+		default:{return "exit";}
+		}
+	}
+	@Override
+	public JPanel createPanel() {
+		return new LogPanel();
 	}
 	public int signIn() {
 		username = InputHandler.listenString("Username:");
 		password = InputHandler.listenString("Password:");
-		
-		return checkCredentials();
+		Object buffer = logProxy.readOnce(new String[] {username,password});
+		loginSuccess = buffer == null;
+		return buffer == null ? -1 : -3;
 	}
 	public int register() {
 		username = InputHandler.listenString("Please Select how you want us to call you:");
@@ -59,7 +76,8 @@ public class LogScreen implements Interactive{
 			}
 		}while(!correct);
 		email = InputHandler.listenString("E-Mail:");
-		return addUser();
+		logProxy.add(new String[] {username,PasswordStorer.encrypt(password),email});
+		return -3;
 		
 	}
 	public static String getUsername() {
@@ -71,6 +89,10 @@ public class LogScreen implements Interactive{
 	public static String getEmail() {
 		return email;
 	}
+	public static boolean loginStat() {
+		return loginSuccess;
+	}
+	/* Method user to add the user via FILE MANAGEMENT behviour, No longer used
 	private  int checkCredentials() {
 		int count = 0;
 		try{
@@ -88,6 +110,7 @@ public class LogScreen implements Interactive{
 		return -2;
 	
 	}
+	
 	private int addUser() {
 		String newInfo = username + "," + password+ "," + email + "\r\n";
 		BufferedWriter usersWriter = null;
@@ -103,7 +126,8 @@ public class LogScreen implements Interactive{
 		}catch(IOException e) {
 			e.printStackTrace();
 		}
-		
 		return -2;
-	}
+	*/
+	
+	
 }

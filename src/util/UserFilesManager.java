@@ -2,18 +2,25 @@ package util;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import food.Food;
+import spaces.DailyFoodDiary;
 import spaces.recipes.Recipe;
 import spaces.recipes.RecipeBook;
 import user.Goals;
@@ -42,7 +49,30 @@ public class UserFilesManager {
 	public static void saveAccountInfo() {
 		CSVLoader.writeSingleEntry(proxied.getProfileDirectory() + "/account.csv", proxied);
 	}
-
+	public static void saveDiary(DailyFoodDiary target) {
+		try {
+			File dFile = new File(proxied.getDiariesDirectory() + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE) + ".out");
+			if(!dFile.exists())
+				dFile.createNewFile();
+			ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(dFile));
+			out.writeObject(target);
+		}catch(IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static DailyFoodDiary loadDiary() {
+		try {
+			File dFile = new File(proxied.getDiariesDirectory() + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE) + ".out");
+			ObjectInputStream in = new ObjectInputStream(new FileInputStream(dFile));
+			return (DailyFoodDiary)in.readObject();
+		}catch(IOException | ClassNotFoundException e) {
+			//e.printStackTrace();
+			System.out.println("Starting a new Diary");
+			return null;
+		}
+		
+	}
 	public static void saveRecipe(Recipe toSave) {
 		String saveFile = null;
 		try {
@@ -83,7 +113,7 @@ public class UserFilesManager {
 						.map(file ->loadRecipe(file)).collect(Collectors.toList());
 			}
 		}catch(Exception e) {
-			System.out.println( e + ". " + e.getCause());
+			e.printStackTrace();
 		}
 		return new RecipeBook(all);
 	}

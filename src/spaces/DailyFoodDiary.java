@@ -1,13 +1,22 @@
 package spaces;
 
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.OutputStream;
+import java.io.Serializable;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
+
+import javax.swing.JPanel;
 
 import food.*;
 import spaces.recipes.RecipeBook;
@@ -17,30 +26,35 @@ import util.InputHandler;
 import util.InvalidCommandException;
 import util.OptionHandler;
 import util.TimeStamp;
-public class DailyFoodDiary implements Interactive{
-	private Map<String,Meal> meals = new HashMap<String,Meal>();
-	private List<String> personalNotes = new ArrayList<String>();
-	private List<String>mealNames = new ArrayList<String>();
-	private LocalDateTime logTime = LocalDateTime.now();
-	private StringBuilder logInfo = new StringBuilder();
+public class DailyFoodDiary implements Interactive,Externalizable{
+	private Map<String,Meal> meals = new HashMap<String,Meal>();   //must ext
+	private List<String> personalNotes = new ArrayList<String>();  //must ext
+	private List<String>mealNames = new ArrayList<String>();  // must ext
+	private String logTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-mm-yyyy"));  
+	private StringBuilder logInfo = new StringBuilder();  
 	private static final String OPTIONS = "1.Show total Macronutrient Split | "+ 
 										"2.Show Meals | 3.Edit a Meal | 4.Add Personal Notes | "+
-										" | 5.Show Notes | 6.Back";
+										" | 5.Show Notes | 6.Back";   
 	private static final int COMMAND_SIZE = 6;
-	private double totalCalories = 0;
-	private boolean updateNeeded = true;
-	private MacroNutrient[] totalMacros = new MacroNutrient[3];
-	private RecipeBook link;
-	public DailyFoodDiary() {
+	private double totalCalories = 0;  	//Must externalize
+	private boolean updateNeeded = true; //must externalize
+	private MacroNutrient[] totalMacros = new MacroNutrient[3];  //must ext
+	private transient RecipeBook link;
+	public DailyFoodDiary(boolean firstTime) {
+		if(firstTime) {
 		logInfo.append("Diary from :");
 		logInfo.append(logTime);
-		meals.put("Breakfast",new Meal("Breakfast"));
-		meals.put("Lunch",new Meal("Lunch"));
-		meals.put("Dinner",new Meal("Dinner"));
-		meals.put("Snack",new Meal("Snack"));
+		meals.putIfAbsent("Breakfast",new Meal("Breakfast"));
+		meals.putIfAbsent("Lunch",new Meal("Lunch"));
+		meals.putIfAbsent("Dinner",new Meal("Dinner"));
+		meals.putIfAbsent("Snack",new Meal("Snack"));
 		totalMacros[0] = new Carbohydrate();
 		totalMacros[1] = new Protein();
 		totalMacros[2] = new Fat();
+		}
+	}
+	public DailyFoodDiary() {
+		
 	}
 	@Override
 	public void showOpts() {
@@ -49,17 +63,36 @@ public class DailyFoodDiary implements Interactive{
 	@Override
 	public int action(int actionId) {
 		switch(actionId) {
-		case 1:{CSVLoader.recordAction(new TimeStamp("Printed Total Calories in Food Diary"));showMacroSplit(); return 1;}
-		case 2:{CSVLoader.recordAction(new TimeStamp("Printed All Meals from current Diary"));System.out.println(this.toString()); return 1;}
-		case 3:{CSVLoader.recordAction(new TimeStamp("Entered Editing Meal"));return editMeal(null);}
-		case 4:{CSVLoader.recordAction(new TimeStamp("Added Note to Personal Notes"));return addNote();}
-		case 5:{CSVLoader.recordAction(new TimeStamp("Printed Personal Notes"));return showNotes();}
+		case 1:{showMacroSplit(); return 1;}
+		case 2:{System.out.println(this.toString()); return 1;}
+		case 3:{return editMeal(null);}
+		case 4:{return addNote();}
+		case 5:{return showNotes();}
 		default : return -2;
+		}
+	}
+	@Override
+	public String getActionName(int actionId) {
+		switch(actionId) {
+		case 1:{return "showMacroSplit()";}
+		case 2:{return "showMeals()";}
+		case 3:{return "editMeal(null)";}
+		case 4:{return "addNote()";}
+		case 5:{return "showNotes()";}
+		default : return "-2";
 		}
 	}
 	@Override
 	public int size() {
 		return COMMAND_SIZE;
+	}
+	@Override
+	public String getOpts() {
+		return OPTIONS;
+	}
+	@Override
+	public JPanel createPanel() {
+		return null;
 	}
 	public int  editMeal(String lookup) {
 		if(lookup ==  null) {
@@ -168,6 +201,34 @@ public class DailyFoodDiary implements Interactive{
 		for(String name : meals.keySet()) {
 			System.out.print(i + "."+ name + " ");
 			i++;
+		}
+	}
+	
+	@Override 
+	public void writeExternal(ObjectOutput out) {
+		try{
+			out.writeObject(meals);
+			out.writeObject(personalNotes);
+			out.writeObject(mealNames);
+			out.writeObject(totalMacros);
+			out.writeObject(totalCalories);
+			out.writeObject(updateNeeded);
+		
+		}catch(IOException e) {
+			e.printStackTrace();
+		}
+	}
+	@Override
+	public void readExternal(ObjectInput in) {
+		try {
+			this.meals = (Map<String,Meal>)in.readObject();
+			this.personalNotes = (List<String>)in.readObject();
+			this.mealNames = (List<String>)in.readObject();
+			this.totalMacros = (MacroNutrient[])in.readObject();
+			this.totalCalories = (Double)in.readObject();
+			this.updateNeeded = (Boolean)in.readObject();
+		}catch(IOException | ClassNotFoundException e) {
+			e.printStackTrace();
 		}
 	}
 }
